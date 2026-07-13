@@ -6,9 +6,9 @@ const products = [
   {
     id: 'org',
     name: 'Organizacija',
-    price: 0.10,
+    price: 60,
     category: 'Server paket',
-    image: '/shop/customorg.png',
+    image: '/shop/customorg-v3.png',
     imageAlt: 'Echo City organizacija',
     description: 'Osnovni paket za ekipu koja zeli krenuti sa svojom pricom na Echo City roleplay serveru.',
     features: ['Naziv organizacije', 'Start lokacija', 'Discord rank za vodju', 'Dogovor oko pravila i limita']
@@ -16,9 +16,9 @@ const products = [
   {
     id: 'custom-car',
     name: 'Custom auto',
-    price: 0.10,
+    price: 35,
     category: 'Vozila',
-    image: '/shop/customcar.jpg',
+    image: '/shop/customauto.png',
     imageAlt: 'Custom auto',
     description: 'Ubaci posebno vozilo za svoj karakter ili organizaciju uz prethodnu provjeru modela.',
     features: ['Provjera optimizacije', 'Custom handling po dogovoru', 'Jedan slot za vozilo', 'Support pri ubacivanju']
@@ -26,18 +26,19 @@ const products = [
   {
     id: 'ped',
     name: 'Custom ped',
-    price: 0.10,
+    price: 30,
     category: 'Karakter',
-    image: 'Dodaj sliku peda',
+    image: '/shop/customped-v2.png',
+    imageAlt: 'Custom ped',
     description: 'Personalizirani ped za igraca koji zeli prepoznatljiv izgled u gradu.',
     features: ['Provjera kompatibilnosti', 'Dodavanje u server pack', 'Osnovni test animacija', 'Promjena po dogovoru']
   },
   {
     id: 'plates',
     name: 'Custom tablice',
-    price: 0.10,
+    price: 10,
     category: 'Ostalo',
-    image: '/shop/customplates.jpg',
+    image: '/shop/customplates-v2.png',
     imageAlt: 'Custom tablice',
     description: 'Unikatne tablice za tvoje vozilo, uz provjeru dostupnosti i pravila servera.',
     features: ['Do 8 znakova', 'Provjera dostupnosti', 'Jedna promjena nakon kupnje', 'Aktivacija nakon potvrde']
@@ -45,12 +46,22 @@ const products = [
   {
     id: 'phone',
     name: 'Broj mobitela in-game',
-    price: 0.10,
+    price: 10,
     category: 'Ostalo',
-    image: '/shop/customnumber.jpg',
+    image: '/shop/customnumber-v3.png',
     imageAlt: 'Custom broj mobitela',
     description: 'Rezerviraj poseban broj mobitela koji mozes koristiti u roleplay prici.',
     features: ['Custom broj po zelji', 'Provjera dostupnosti', 'Povezivanje s likom', 'Brza aktivacija']
+  },
+  {
+    id: 'bump-glide',
+    name: 'Bump + glide na auto',
+    price: 50,
+    category: 'Vozila',
+    image: '/shop/custombump.png',
+    imageAlt: 'Bump i glide za auto',
+    description: 'Dodavanje bumpa i glidea na vozilo za igrace koji zele poseban stil voznje i show efekat.',
+    features: ['Bump setup po dogovoru', 'Glide podesavanje', 'Testiranje na serveru', 'Aktivacija nakon potvrde']
   }
 ]
 

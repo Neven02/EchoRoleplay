@@ -24,11 +24,12 @@ const paypalBaseUrl = paypalMode === 'live'
   : 'https://api-m.sandbox.paypal.com'
 
 const products = {
-  org: { name: 'Organizacija', price: 0.10 },
-  'custom-car': { name: 'Custom auto', price: 0.10 },
-  ped: { name: 'Custom ped', price: 0.10 },
-  plates: { name: 'Custom tablice', price: 0.10 },
-  phone: { name: 'Broj mobitela in-game', price: 0.10 }
+  org: { name: 'Organizacija', price: 60 },
+  'custom-car': { name: 'Custom auto', price: 35 },
+  ped: { name: 'Custom ped', price: 30 },
+  plates: { name: 'Custom tablice', price: 10 },
+  phone: { name: 'Broj mobitela in-game', price: 10 },
+  'bump-glide': { name: 'Bump + glide na auto', price: 50 }
 }
 
 app.use(express.json())
