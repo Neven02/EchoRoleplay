@@ -24,8 +24,8 @@ const paypalBaseUrl = paypalMode === 'live'
   : 'https://api-m.sandbox.paypal.com'
 
 const products = {
-  org: { name: 'Organizacija', price: 0.10 },
-  'custom-car': { name: 'Custom auto', price: 35 },
+  org: { name: 'Organizacija', price: 100 },
+  'custom-car': { name: 'Custom auto', price: 100 },
   ped: { name: 'Custom ped', price: 30 },
   plates: { name: 'Custom tablice', price: 10 },
   phone: { name: 'Broj mobitela in-game', price: 10 },
