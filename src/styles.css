@@ -59,6 +59,30 @@ button {
   }
 }
 
+@keyframes drawerIn {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes glowLift {
+  from {
+    opacity: 0.72;
+    transform: translateY(18px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .shop-page {
   min-height: 100vh;
   background: linear-gradient(180deg, rgba(9, 4, 10, 0.08), rgba(9, 4, 10, 0.82) 660px, rgba(9, 4, 10, 0.96));
@@ -162,6 +186,10 @@ button {
   background: linear-gradient(135deg, #dc2626, #f97316);
   color: #fff;
   box-shadow: 0 14px 34px rgba(220, 38, 38, 0.28);
+}
+
+button.discord-link {
+  border-color: transparent;
 }
 
 main {
@@ -400,6 +428,14 @@ main {
   background: rgba(255, 120, 90, 0.18);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
   backdrop-filter: blur(12px);
+}
+
+.hero-content,
+.hero-panel,
+.rules-section,
+.catalog-section .section-head,
+.checkout-sticky {
+  animation: glowLift 720ms ease both;
 }
 
 .notice-strip div {
@@ -909,6 +945,46 @@ main {
   font-weight: 650;
 }
 
+.product-detail-fields,
+.success-panel {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(220, 38, 38, 0.14);
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, rgba(255, 247, 237, 0.95), rgba(255, 255, 255, 0.98));
+}
+
+.product-detail-fields > strong,
+.success-panel strong {
+  color: #050816;
+  font-weight: 950;
+}
+
+.product-detail-fields p,
+.success-panel span {
+  margin: 0;
+  color: #374151;
+  font-size: 0.94rem;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.detail-group {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.detail-group > span {
+  color: #b91c1c;
+  font-weight: 950;
+}
+
 .buyer-form label {
   display: grid;
   gap: 6px;
@@ -948,6 +1024,146 @@ main {
   color: #fff;
   font-weight: 900;
   cursor: pointer;
+}
+
+.terms-check {
+  grid-template-columns: 22px 1fr;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.terms-check input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: #dc2626;
+}
+
+.terms-check span {
+  color: #111827;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.cart-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px;
+  background: rgba(5, 8, 22, 0.62);
+  backdrop-filter: blur(8px);
+}
+
+.cart-drawer {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  width: min(460px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid rgba(255, 120, 90, 0.26);
+  border-radius: 8px;
+  background:
+    linear-gradient(160deg, rgba(18, 10, 15, 0.96), rgba(67, 18, 26, 0.92)),
+    #09040a;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.45);
+  animation: drawerIn 260ms ease both;
+}
+
+.drawer-head,
+.drawer-total {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.drawer-head h2 {
+  margin: 0;
+  color: #fff;
+}
+
+.drawer-head button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-weight: 950;
+}
+
+.drawer-list {
+  display: grid;
+  gap: 10px;
+}
+
+.drawer-item {
+  display: grid;
+  grid-template-columns: 74px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.drawer-item img {
+  width: 74px;
+  height: 58px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.drawer-item strong,
+.drawer-item span {
+  display: block;
+}
+
+.drawer-item strong {
+  color: #fff;
+}
+
+.drawer-item span {
+  margin-top: 4px;
+  color: #fecaca;
+  font-weight: 750;
+}
+
+.drawer-total {
+  align-items: center;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.drawer-total span {
+  color: #fecaca;
+  font-weight: 850;
+}
+
+.drawer-total strong {
+  color: #fff;
+  font-size: 1.25rem;
+}
+
+.drawer-empty {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border: 1px dashed rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
+  color: #fff;
 }
 
 .checkout-message {

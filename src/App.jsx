@@ -6,22 +6,31 @@ const products = [
   {
     id: 'org',
     name: 'Organizacija',
-    price: 100,
+    price: 60,
     category: 'Server paket',
     image: '/shop/customorg-v3.png',
     imageAlt: 'Echo City organizacija',
     description: 'Osnovni paket za ekipu koja zeli krenuti sa svojom pricom na Echo City roleplay serveru.',
-    features: ['Naziv organizacije', 'Start lokacija', 'Discord rank za vodju', 'Dogovor oko pravila i limita']
+    features: ['Naziv organizacije', 'Start lokacija', 'Discord rank za vodju', 'Dogovor oko pravila i limita'],
+    fields: [
+      { id: 'orgName', label: 'Naziv organizacije', placeholder: 'npr. Echo Crew', required: true },
+      { id: 'leaderDiscord', label: 'Vodja organizacije', placeholder: 'Discord ime vodje', required: true },
+      { id: 'startLocation', label: 'Zeljena start lokacija', placeholder: 'npr. garaza, kvart, biznis' }
+    ]
   },
   {
     id: 'custom-car',
     name: 'Custom auto',
-    price: 100,
+    price: 35,
     category: 'Vozila',
     image: '/shop/customauto.png',
     imageAlt: 'Custom auto',
     description: 'Ubaci posebno vozilo za svoj karakter ili organizaciju uz prethodnu provjeru modela.',
-    features: ['Provjera optimizacije', 'Custom handling po dogovoru', 'Jedan slot za vozilo', 'Support pri ubacivanju']
+    features: ['Provjera optimizacije', 'Custom handling po dogovoru', 'Jedan slot za vozilo', 'Support pri ubacivanju'],
+    fields: [
+      { id: 'vehicleName', label: 'Naziv auta', placeholder: 'npr. BMW M5 F90', required: true },
+      { id: 'modelLink', label: 'Link modela', placeholder: 'Link do modela auta', required: true }
+    ]
   },
   {
     id: 'ped',
@@ -31,7 +40,11 @@ const products = [
     image: '/shop/customped-v2.png',
     imageAlt: 'Custom ped',
     description: 'Personalizirani ped za igraca koji zeli prepoznatljiv izgled u gradu.',
-    features: ['Provjera kompatibilnosti', 'Dodavanje u server pack', 'Osnovni test animacija', 'Promjena po dogovoru']
+    features: ['Provjera kompatibilnosti', 'Dodavanje u server pack', 'Osnovni test animacija', 'Promjena po dogovoru'],
+    fields: [
+      { id: 'pedName', label: 'Ime peda', placeholder: 'Naziv ili opis peda', required: true },
+      { id: 'pedLink', label: 'Link peda', placeholder: 'Link do peda/modela', required: true }
+    ]
   },
   {
     id: 'plates',
@@ -41,7 +54,10 @@ const products = [
     image: '/shop/customplates-v2.png',
     imageAlt: 'Custom tablice',
     description: 'Unikatne tablice za tvoje vozilo, uz provjeru dostupnosti i pravila servera.',
-    features: ['Do 8 znakova', 'Provjera dostupnosti', 'Jedna promjena nakon kupnje', 'Aktivacija nakon potvrde']
+    features: ['Do 8 znakova', 'Provjera dostupnosti', 'Jedna promjena nakon kupnje', 'Aktivacija nakon potvrde'],
+    fields: [
+      { id: 'plateText', label: 'Tekst tablice', placeholder: 'Max 8 znakova', required: true, maxLength: 8 }
+    ]
   },
   {
     id: 'phone',
@@ -51,7 +67,10 @@ const products = [
     image: '/shop/customnumber-v3.png',
     imageAlt: 'Custom broj mobitela',
     description: 'Rezerviraj poseban broj mobitela koji mozes koristiti u roleplay prici.',
-    features: ['Custom broj po zelji', 'Provjera dostupnosti', 'Povezivanje s likom', 'Brza aktivacija']
+    features: ['Custom broj po zelji', 'Provjera dostupnosti', 'Povezivanje s likom', 'Brza aktivacija'],
+    fields: [
+      { id: 'phoneNumber', label: 'Zeljeni broj', placeholder: 'npr. 555-1234', required: true }
+    ]
   },
   {
     id: 'bump-glide',
@@ -61,7 +80,11 @@ const products = [
     image: '/shop/custombump.png',
     imageAlt: 'Bump i glide za auto',
     description: 'Dodavanje bumpa i glidea na vozilo za igrace koji zele poseban stil voznje i show efekat.',
-    features: ['Bump setup po dogovoru', 'Glide podesavanje', 'Testiranje na serveru', 'Aktivacija nakon potvrde']
+    features: ['Bump setup po dogovoru', 'Glide podesavanje', 'Testiranje na serveru', 'Aktivacija nakon potvrde'],
+    fields: [
+      { id: 'vehicleName', label: 'Auto za bump/glide', placeholder: 'Naziv auta', required: true },
+      { id: 'handlingNote', label: 'Zelja za handling', placeholder: 'Kratko opisi sta zelis' }
+    ]
   }
 ]
 
@@ -112,13 +135,17 @@ function ProductCard({ product, quantity, onAdd, onRemove }) {
 
 function App() {
   const [cart, setCart] = useState({})
+  const [cartOpen, setCartOpen] = useState(false)
   const [payment, setPayment] = useState('paypal')
   const [checkoutTab, setCheckoutTab] = useState('cart')
   const [config, setConfig] = useState(defaultConfig)
   const [buyer, setBuyer] = useState({ discord: '', ingame: '', note: '' })
+  const [productDetails, setProductDetails] = useState({})
+  const [termsAccepted, setTermsAccepted] = useState(false)
   const [western, setWestern] = useState({ senderName: '', senderCountry: '', mtcn: '' })
   const [proofFile, setProofFile] = useState(null)
   const [checkoutStatus, setCheckoutStatus] = useState('')
+  const [successOrderId, setSuccessOrderId] = useState('')
   const [checkoutError, setCheckoutError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -129,6 +156,24 @@ function App() {
 
   const total = cartItems.reduce((sum, item) => sum + item.total, 0)
   const cartPayload = cartItems.map((item) => ({ id: item.id, quantity: item.quantity }))
+
+  const updateProductDetail = (productId, fieldId, value) => {
+    setProductDetails((current) => ({
+      ...current,
+      [productId]: {
+        ...(current[productId] || {}),
+        [fieldId]: value
+      }
+    }))
+  }
+
+  const openPayment = () => {
+    setCartOpen(false)
+    setCheckoutTab('payment')
+    window.requestAnimationFrame(() => {
+      document.getElementById('checkout')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
 
   useEffect(() => {
     fetch('/api/config')
@@ -168,10 +213,13 @@ function App() {
         if (!response.ok) throw new Error(data.error || 'PayPal uplata nije potvrdjena.')
 
         setCart({})
+        setProductDetails({})
         setBuyer({ discord: '', ingame: '', note: '' })
+        setTermsAccepted(false)
+        setSuccessOrderId(data.shopOrderId || '')
         setCheckoutStatus(data.discord?.sent
-          ? 'PayPal uplata je potvrdjena i narudzba je poslana staffu na Discord.'
-          : 'PayPal uplata je potvrdjena, ali Discord webhook jos nije konfiguriran.')
+          ? `PayPal uplata je potvrdjena. Narudzba ${data.shopOrderId || ''} je poslana staffu na Discord.`
+          : `PayPal uplata je potvrdjena. Narudzba ${data.shopOrderId || ''} je spremna, ali Discord webhook jos nije konfiguriran.`)
         localStorage.removeItem('echoCityPendingPayPal')
         window.history.replaceState({}, '', window.location.pathname)
       } catch (error) {
@@ -205,6 +253,14 @@ function App() {
     if (!cartItems.length) return 'Dodaj barem jedan paket u kosaricu.'
     if (!buyer.discord.trim()) return 'Unesi Discord ime.'
     if (!buyer.ingame.trim()) return 'Unesi in-game ime.'
+    for (const item of cartItems) {
+      for (const field of item.fields || []) {
+        const value = String(productDetails[item.id]?.[field.id] || '').trim()
+        if (field.required && !value) return `Unesi "${field.label}" za ${item.name}.`
+        if (field.maxLength && value.length > field.maxLength) return `${field.label} za ${item.name} moze imati najvise ${field.maxLength} znakova.`
+      }
+    }
+    if (!termsAccepted) return 'Potvrdi da razumijes rucnu aktivaciju i provjeru paketa.'
     return ''
   }
 
@@ -223,7 +279,7 @@ function App() {
       const response = await fetch('/api/paypal/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ buyer, cart: cartPayload })
+        body: JSON.stringify({ buyer, cart: cartPayload, details: productDetails })
       })
       const data = await response.json()
 
@@ -232,8 +288,10 @@ function App() {
 
       localStorage.setItem('echoCityPendingPayPal', JSON.stringify({
         orderId: data.orderId,
+        shopOrderId: data.shopOrderId,
         buyer,
-        cart: cartPayload
+        cart: cartPayload,
+        details: productDetails
       }))
       window.location.href = data.approvalLink
     } catch (error) {
@@ -263,6 +321,7 @@ function App() {
       const formData = new FormData()
       formData.append('buyer', JSON.stringify(buyer))
       formData.append('cart', JSON.stringify(cartPayload))
+      formData.append('details', JSON.stringify(productDetails))
       formData.append('senderName', western.senderName)
       formData.append('senderCountry', western.senderCountry)
       formData.append('mtcn', western.mtcn)
@@ -277,12 +336,15 @@ function App() {
       if (!response.ok) throw new Error(data.error || 'Western Union narudzba nije poslana.')
 
       setCart({})
+      setProductDetails({})
       setProofFile(null)
       setWestern({ senderName: '', senderCountry: '', mtcn: '' })
       setBuyer({ discord: '', ingame: '', note: '' })
+      setTermsAccepted(false)
+      setSuccessOrderId(data.shopOrderId || '')
       setCheckoutStatus(data.discord?.sent
-        ? 'Western Union narudzba i dokaz uplate poslani su staffu na Discord.'
-        : 'Narudzba je spremljena, ali Discord webhook jos nije konfiguriran.')
+        ? `Western Union narudzba ${data.shopOrderId || ''} i dokaz uplate poslani su staffu na Discord.`
+        : `Narudzba ${data.shopOrderId || ''} je spremljena, ali Discord webhook jos nije konfiguriran.`)
     } catch (error) {
       setCheckoutError(error.message)
       setCheckoutStatus('')
@@ -309,9 +371,9 @@ function App() {
           <a href="#checkout" onClick={() => setCheckoutTab('payment')}>Placanje</a>
           <a href="#pravila">Pravila</a>
         </nav>
-        <a className="discord-link" href="#checkout" onClick={() => setCheckoutTab('cart')}>
+        <button type="button" className="discord-link" onClick={() => setCartOpen(true)}>
           Kosarica {cartItems.length ? `(${cartItems.reduce((sum, item) => sum + item.quantity, 0)})` : ''}
-        </a>
+        </button>
       </header>
 
       <main id="top">
@@ -553,6 +615,43 @@ function App() {
                 )}
                 {checkoutError && <div className="checkout-message error">{checkoutError}</div>}
                 {checkoutStatus && <div className="checkout-message success">{checkoutStatus}</div>}
+                {successOrderId && (
+                  <div className="success-panel">
+                    <strong>ID narudzbe: {successOrderId}</strong>
+                    <span>Sacuvaj ovaj ID ako staff treba brzo pronaci tvoju uplatu.</span>
+                  </div>
+                )}
+                {cartItems.length > 0 && (
+                  <div className="product-detail-fields">
+                    <strong>Detalji za aktivaciju</strong>
+                    <p>Ovo staff dobije uz narudzbu, zato odmah upisi najbitnije podatke.</p>
+                    {cartItems.map((item) => (
+                      <div className="detail-group" key={item.id}>
+                        <span>{item.name}</span>
+                        {(item.fields || []).map((field) => (
+                          <label key={field.id}>
+                            {field.label}{field.required ? ' *' : ''}
+                            <input
+                              type="text"
+                              maxLength={field.maxLength}
+                              placeholder={field.placeholder}
+                              value={productDetails[item.id]?.[field.id] || ''}
+                              onChange={(event) => updateProductDetail(item.id, field.id, event.target.value)}
+                            />
+                          </label>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <label className="terms-check">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(event) => setTermsAccepted(event.target.checked)}
+                  />
+                  <span>Razumijem da se paketi aktiviraju nakon provjere uplate i dogovora sa staffom.</span>
+                </label>
                 {payment === 'paypal' ? (
                   <button type="button" className="primary-button wide" onClick={handlePayPalCheckout} disabled={loading || !cartItems.length}>
                     {loading ? 'Obrada...' : 'Plati PayPalom'}
@@ -580,6 +679,55 @@ function App() {
           </p>
         </section>
       </main>
+
+      {cartOpen && (
+        <div className="cart-backdrop" role="presentation" onClick={() => setCartOpen(false)}>
+          <aside className="cart-drawer" aria-label="Pop out kosarica" onClick={(event) => event.stopPropagation()}>
+            <div className="drawer-head">
+              <div>
+                <p className="eyebrow">Kosarica</p>
+                <h2>Tvoja narudzba</h2>
+              </div>
+              <button type="button" aria-label="Zatvori kosaricu" onClick={() => setCartOpen(false)}>x</button>
+            </div>
+            {cartItems.length ? (
+              <>
+                <div className="drawer-list">
+                  {cartItems.map((item) => (
+                    <div className="drawer-item" key={item.id}>
+                      <img src={item.image} alt={item.imageAlt || item.name} />
+                      <div>
+                        <strong>{item.name}</strong>
+                        <span>{item.quantity} x {item.price.toFixed(2)} EUR</span>
+                      </div>
+                      <div className="mini-quantity" aria-label={`Kolicina za ${item.name}`}>
+                        <button type="button" onClick={() => removeFromCart(item.id)}>-</button>
+                        <span>{item.quantity}</span>
+                        <button type="button" onClick={() => addToCart(item.id)}>+</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="drawer-total">
+                  <span>Ukupno</span>
+                  <strong>{total.toFixed(2)} EUR</strong>
+                </div>
+                <button type="button" className="primary-button wide" onClick={openPayment}>
+                  Nastavi na placanje
+                </button>
+                <button type="button" className="secondary-button wide" onClick={() => setCartOpen(false)}>
+                  Nastavi gledati pakete
+                </button>
+              </>
+            ) : (
+              <div className="drawer-empty">
+                <strong>Kosarica je prazna.</strong>
+                <span>Dodaj paket iz kataloga pa ce se ovdje prikazati sve stavke i total.</span>
+              </div>
+            )}
+          </aside>
+        </div>
+      )}
 
       <footer className="shop-footer">
         <span>Copyright 2026 Echo City Roleplay</span>
