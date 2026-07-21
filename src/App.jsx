@@ -21,7 +21,7 @@ const products = [
   {
     id: 'custom-car',
     name: 'Custom auto',
-    price: 35,
+    price: 100,
     category: 'Vozila',
     image: '/shop/customauto.png',
     imageAlt: 'Custom auto',
