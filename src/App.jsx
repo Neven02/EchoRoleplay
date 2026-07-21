@@ -148,6 +148,17 @@ function App() {
   const [successOrderId, setSuccessOrderId] = useState('')
   const [checkoutError, setCheckoutError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem('echoCityAuthToken') || '')
+  const [authUser, setAuthUser] = useState(null)
+  const [authMode, setAuthMode] = useState('login')
+  const [authForm, setAuthForm] = useState({ username: '', password: '', discord: '', ingame: '' })
+  const [authError, setAuthError] = useState('')
+  const [orders, setOrders] = useState([])
+  const [spent, setSpent] = useState(0)
+  const [adminData, setAdminData] = useState(null)
+  const [discountCode, setDiscountCode] = useState('')
+  const [discountInfo, setDiscountInfo] = useState(null)
+  const [discountError, setDiscountError] = useState('')
 
   const cartItems = useMemo(() => products
     .filter((product) => cart[product.id])
@@ -155,7 +166,10 @@ function App() {
     [cart])
 
   const total = cartItems.reduce((sum, item) => sum + item.total, 0)
+  const totalDue = discountInfo?.total ?? total
   const cartPayload = cartItems.map((item) => ({ id: item.id, quantity: item.quantity }))
+
+  const authHeaders = authToken ? { Authorization: `Bearer ${authToken}` } : {}
 
   const updateProductDetail = (productId, fieldId, value) => {
     setProductDetails((current) => ({
@@ -175,12 +189,97 @@ function App() {
     })
   }
 
+  const refreshOrders = async (token = authToken) => {
+    if (!token) return
+    const response = await fetch('/api/orders', { headers: { Authorization: `Bearer ${token}` } })
+    if (!response.ok) return
+    const data = await response.json()
+    setOrders(data.orders || [])
+    setSpent(data.spent || 0)
+  }
+
+  const refreshAdmin = async (token = authToken, user = authUser) => {
+    if (!token || user?.role !== 'admin') return
+    const response = await fetch('/api/admin/summary', { headers: { Authorization: `Bearer ${token}` } })
+    if (!response.ok) return
+    setAdminData(await response.json())
+  }
+
+  const handleAuth = async () => {
+    setAuthError('')
+    const endpoint = authMode === 'login' ? '/api/auth/login' : '/api/auth/register'
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(authForm)
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      setAuthError(data.error || 'Login nije uspio.')
+      return
+    }
+    localStorage.setItem('echoCityAuthToken', data.token)
+    setAuthToken(data.token)
+    setAuthUser(data.user)
+    setBuyer((current) => ({
+      ...current,
+      discord: current.discord || data.user.discord || data.user.username,
+      ingame: current.ingame || data.user.ingame || data.user.username
+    }))
+    setAuthForm({ username: '', password: '', discord: '', ingame: '' })
+    await refreshOrders(data.token)
+    await refreshAdmin(data.token, data.user)
+  }
+
+  const logout = () => {
+    localStorage.removeItem('echoCityAuthToken')
+    setAuthToken('')
+    setAuthUser(null)
+    setOrders([])
+    setAdminData(null)
+    setSpent(0)
+  }
+
+  const applyDiscount = async () => {
+    setDiscountError('')
+    setDiscountInfo(null)
+    if (!discountCode.trim()) return
+    const response = await fetch('/api/discount/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ buyer, cart: cartPayload, discountCode })
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      setDiscountError(data.error || 'Popust kod nije ispravan.')
+      return
+    }
+    setDiscountInfo(data)
+  }
+
   useEffect(() => {
     fetch('/api/config')
       .then((response) => response.ok ? response.json() : defaultConfig)
       .then(setConfig)
       .catch(() => setConfig(defaultConfig))
   }, [])
+
+  useEffect(() => {
+    if (!authToken) return
+    fetch('/api/auth/me', { headers: { Authorization: `Bearer ${authToken}` } })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error('auth')))
+      .then((data) => {
+        setAuthUser(data.user)
+        refreshOrders(authToken)
+        refreshAdmin(authToken, data.user)
+      })
+      .catch(() => logout())
+  }, [authToken])
+
+  useEffect(() => {
+    setDiscountInfo(null)
+    setDiscountError('')
+  }, [cart])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -205,7 +304,7 @@ function App() {
         const stored = JSON.parse(pendingOrder)
         const response = await fetch('/api/paypal/capture-order', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...(stored.authToken ? { Authorization: `Bearer ${stored.authToken}` } : {}) },
           body: JSON.stringify(stored)
         })
         const data = await response.json()
@@ -216,10 +315,14 @@ function App() {
         setProductDetails({})
         setBuyer({ discord: '', ingame: '', note: '' })
         setTermsAccepted(false)
+        setDiscountCode('')
+        setDiscountInfo(null)
         setSuccessOrderId(data.shopOrderId || '')
         setCheckoutStatus(data.discord?.sent
           ? `PayPal uplata je potvrdjena. Narudzba ${data.shopOrderId || ''} je poslana staffu na Discord.`
           : `PayPal uplata je potvrdjena. Narudzba ${data.shopOrderId || ''} je spremna, ali Discord webhook jos nije konfiguriran.`)
+        refreshOrders(stored.authToken || authToken)
+        if (authUser?.role === 'admin') refreshAdmin(stored.authToken || authToken, authUser)
         localStorage.removeItem('echoCityPendingPayPal')
         window.history.replaceState({}, '', window.location.pathname)
       } catch (error) {
@@ -278,8 +381,8 @@ function App() {
     try {
       const response = await fetch('/api/paypal/create-order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ buyer, cart: cartPayload, details: productDetails })
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify({ buyer, cart: cartPayload, details: productDetails, discountCode })
       })
       const data = await response.json()
 
@@ -291,7 +394,9 @@ function App() {
         shopOrderId: data.shopOrderId,
         buyer,
         cart: cartPayload,
-        details: productDetails
+        details: productDetails,
+        discountCode,
+        authToken
       }))
       window.location.href = data.approvalLink
     } catch (error) {
@@ -322,6 +427,7 @@ function App() {
       formData.append('buyer', JSON.stringify(buyer))
       formData.append('cart', JSON.stringify(cartPayload))
       formData.append('details', JSON.stringify(productDetails))
+      formData.append('discountCode', discountCode)
       formData.append('senderName', western.senderName)
       formData.append('senderCountry', western.senderCountry)
       formData.append('mtcn', western.mtcn)
@@ -329,6 +435,7 @@ function App() {
 
       const response = await fetch('/api/western-union/order', {
         method: 'POST',
+        headers: authHeaders,
         body: formData
       })
       const data = await response.json()
@@ -342,9 +449,13 @@ function App() {
       setBuyer({ discord: '', ingame: '', note: '' })
       setTermsAccepted(false)
       setSuccessOrderId(data.shopOrderId || '')
+      setDiscountCode('')
+      setDiscountInfo(null)
       setCheckoutStatus(data.discord?.sent
         ? `Western Union narudzba ${data.shopOrderId || ''} i dokaz uplate poslani su staffu na Discord.`
         : `Narudzba ${data.shopOrderId || ''} je spremljena, ali Discord webhook jos nije konfiguriran.`)
+      refreshOrders()
+      refreshAdmin()
     } catch (error) {
       setCheckoutError(error.message)
       setCheckoutStatus('')
@@ -369,6 +480,8 @@ function App() {
         <nav aria-label="Glavna navigacija">
           <a href="#paketi">Paketi</a>
           <a href="#checkout" onClick={() => setCheckoutTab('payment')}>Placanje</a>
+          <a href="#racun">Moj racun</a>
+          {authUser?.role === 'admin' && <a href="#admin">Admin</a>}
           <a href="#pravila">Pravila</a>
         </nav>
         <button type="button" className="discord-link" onClick={() => setCartOpen(true)}>
@@ -446,7 +559,7 @@ function App() {
                   <p className="eyebrow">Checkout</p>
                   <h2>{checkoutTab === 'cart' ? 'Tvoja kosarica' : 'Placanje'}</h2>
                 </div>
-                <span>{total.toFixed(2)} EUR</span>
+                <span>{totalDue.toFixed(2)} EUR</span>
               </div>
 
               <div className="checkout-tabs" role="tablist" aria-label="Checkout koraci">
@@ -491,7 +604,7 @@ function App() {
                       </div>
                       <div className="cart-total">
                         <span>Ukupno za placanje</span>
-                        <strong>{total.toFixed(2)} EUR</strong>
+                        <strong>{totalDue.toFixed(2)} EUR</strong>
                       </div>
                       <button type="button" className="primary-button wide" onClick={() => setCheckoutTab('payment')}>
                         Nastavi na placanje
@@ -644,6 +757,29 @@ function App() {
                     ))}
                   </div>
                 )}
+                <div className="discount-box">
+                  <label>
+                    Popust kod
+                    <div className="coupon-row">
+                      <input
+                        type="text"
+                        placeholder="npr. ECHO20-XXXX"
+                        value={discountCode}
+                        onChange={(event) => setDiscountCode(event.target.value.toUpperCase())}
+                      />
+                      <button type="button" className="secondary-button" onClick={applyDiscount} disabled={!cartItems.length}>
+                        Primijeni
+                      </button>
+                    </div>
+                  </label>
+                  {discountInfo?.discount?.code && (
+                    <div className="discount-success">
+                      Popust {discountInfo.discount.percent}%: -{discountInfo.discount.amount.toFixed(2)} EUR.
+                      Novi total: {discountInfo.total.toFixed(2)} EUR.
+                    </div>
+                  )}
+                  {discountError && <div className="discount-error">{discountError}</div>}
+                </div>
                 <label className="terms-check">
                   <input
                     type="checkbox"
@@ -667,6 +803,102 @@ function App() {
             </div>
           </aside>
         </div>
+
+        <section id="racun" className="account-section">
+          <div className="account-card">
+            <div>
+              <p className="eyebrow">Account</p>
+              <h2>{authUser ? `Bok, ${authUser.username}` : 'Login za povijest kupnje'}</h2>
+              <p>Korisnik vidi svoje narudzbe, broj narudzbe i koliko je ukupno potrosio.</p>
+            </div>
+            {authUser ? (
+              <div className="account-actions">
+                <strong>Ukupno potroseno: {spent.toFixed(2)} EUR</strong>
+                <button type="button" className="secondary-button" onClick={logout}>Odjava</button>
+              </div>
+            ) : (
+              <div className="auth-box">
+                <div className="checkout-tabs">
+                  <button type="button" className={authMode === 'login' ? 'active' : ''} onClick={() => setAuthMode('login')}>Login</button>
+                  <button type="button" className={authMode === 'register' ? 'active' : ''} onClick={() => setAuthMode('register')}>Registracija</button>
+                </div>
+                <input placeholder="Username" value={authForm.username} onChange={(event) => setAuthForm((current) => ({ ...current, username: event.target.value }))} />
+                <input type="password" placeholder="Lozinka" value={authForm.password} onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))} />
+                {authMode === 'register' && (
+                  <>
+                    <input placeholder="Discord ime" value={authForm.discord} onChange={(event) => setAuthForm((current) => ({ ...current, discord: event.target.value }))} />
+                    <input placeholder="In-game ime" value={authForm.ingame} onChange={(event) => setAuthForm((current) => ({ ...current, ingame: event.target.value }))} />
+                  </>
+                )}
+                {authError && <div className="checkout-message error">{authError}</div>}
+                <button type="button" className="primary-button wide" onClick={handleAuth}>
+                  {authMode === 'login' ? 'Prijavi se' : 'Napravi account'}
+                </button>
+              </div>
+            )}
+          </div>
+          {authUser && (
+            <div className="history-grid">
+              {orders.length ? orders.map((order) => (
+                <article className="history-card" key={order.id}>
+                  <div>
+                    <strong>{order.id}</strong>
+                    <span>{new Date(order.createdAt).toLocaleString('hr-HR')}</span>
+                  </div>
+                  <p>{order.items.map((item) => `${item.quantity}x ${item.name}`).join(', ')}</p>
+                  <b>{Number(order.total).toFixed(2)} EUR</b>
+                  <small>{order.paymentStatus}</small>
+                </article>
+              )) : (
+                <div className="empty-cart-panel">
+                  <strong>Nemas jos narudzbi.</strong>
+                  <span>Kad kupis paket, ovdje ce se pojaviti povijest kupnje.</span>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        {authUser?.role === 'admin' && adminData && (
+          <section id="admin" className="admin-section">
+            <div className="section-head admin-head">
+              <div>
+                <p className="eyebrow">Admin</p>
+                <h2>Pregled shopa</h2>
+              </div>
+              <strong>{Number(adminData.revenue || 0).toFixed(2)} EUR ukupno</strong>
+            </div>
+            <div className="admin-grid">
+              <div className="admin-card">
+                <h3>Korisnici</h3>
+                {adminData.users.map((user) => (
+                  <div className="admin-row" key={user.id}>
+                    <span>{user.username} ({user.role})</span>
+                    <b>{user.spent.toFixed(2)} EUR / {user.orders} narudzbi</b>
+                  </div>
+                ))}
+              </div>
+              <div className="admin-card">
+                <h3>Narudzbe</h3>
+                {adminData.orders.slice(0, 12).map((order) => (
+                  <div className="admin-row" key={order.id}>
+                    <span>{order.id} - {order.username}</span>
+                    <b>{Number(order.total).toFixed(2)} EUR</b>
+                  </div>
+                ))}
+              </div>
+              <div className="admin-card">
+                <h3>Popust kodovi</h3>
+                {adminData.coupons.map((coupon) => (
+                  <div className={`admin-row ${coupon.usedAt ? 'muted' : ''}`} key={coupon.code}>
+                    <span>{coupon.code}</span>
+                    <b>{coupon.percent}% {coupon.usedAt ? 'iskoristen' : 'slobodan'}</b>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         <section id="pravila" className="rules-section">
           <div>
@@ -710,7 +942,7 @@ function App() {
                 </div>
                 <div className="drawer-total">
                   <span>Ukupno</span>
-                  <strong>{total.toFixed(2)} EUR</strong>
+                  <strong>{totalDue.toFixed(2)} EUR</strong>
                 </div>
                 <button type="button" className="primary-button wide" onClick={openPayment}>
                   Nastavi na placanje

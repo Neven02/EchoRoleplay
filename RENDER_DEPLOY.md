@@ -48,7 +48,26 @@ DISCORD_WEBHOOK_URL=...
 WESTERN_UNION_RECEIVER=Neven Pavlovic
 WESTERN_UNION_COUNTRY=Hrvatska
 PUBLIC_SITE_URL=https://tvoj-render-link.onrender.com
+AUTH_SECRET=neki-dugi-random-tekst
+SUPABASE_URL=https://tvoj-project-ref.supabase.co
+SUPABASE_SECRET_KEY=sb_secret_...
 ```
+
+Za tvoj Supabase URL nemoj stavljati `/rest/v1/` na kraj. Treba biti ovako:
+
+```env
+SUPABASE_URL=https://xxxxx.supabase.co
+```
+
+## 5. Supabase setup
+
+U Supabase dashboardu otvori SQL Editor i pokreni sadrzaj fajla:
+
+```text
+SUPABASE_SETUP.sql
+```
+
+## 6. PayPal mode
 
 Za test mozes koristiti:
 
@@ -62,7 +81,7 @@ Za pravi Discord shop koristi:
 PAYPAL_MODE=live
 ```
 
-## 5. Poslije deploya
+## 7. Poslije deploya
 
 Kad Render napravi prvi deploy, kopiraj URL servisa i postavi ga kao:
 
