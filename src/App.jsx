@@ -6,7 +6,7 @@ const products = [
   {
     id: 'org',
     name: 'Organizacija',
-    price: 100,
+    price: 0.10,
     category: 'Server paket',
     image: '/shop/customorg-v3.png',
     imageAlt: 'Echo City organizacija',
@@ -21,7 +21,7 @@ const products = [
   {
     id: 'custom-car',
     name: 'Custom auto',
-    price: 100,
+    price: 35,
     category: 'Vozila',
     image: '/shop/customauto.png',
     imageAlt: 'Custom auto',
@@ -35,7 +35,7 @@ const products = [
   {
     id: 'ped',
     name: 'Custom ped',
-    price: 30,
+    price: 0.01,
     category: 'Karakter',
     image: '/shop/customped-v2.png',
     imageAlt: 'Custom ped',

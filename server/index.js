@@ -29,9 +29,9 @@ const paypalBaseUrl = paypalMode === 'live'
   : 'https://api-m.sandbox.paypal.com'
 
 const products = {
-  org: { name: 'Organizacija', price: 100 },
-  'custom-car': { name: 'Custom auto', price: 100 },
-  ped: { name: 'Custom ped', price: 30 },
+  org: { name: 'Organizacija', price: 0.10 },
+  'custom-car': { name: 'Custom auto', price: 35 },
+  ped: { name: 'Custom ped', price: 0.01 },
   plates: { name: 'Custom tablice', price: 10 },
   phone: { name: 'Broj mobitela in-game', price: 10 },
   'bump-glide': { name: 'Bump + glide na auto', price: 50 }
@@ -457,12 +457,7 @@ function getPaypalCaptureDetails(capture) {
   }
 }
 
-async function sendDiscordOrder({ type, shopOrderId, buyer, items, subtotal, discount, total, paymentStatus, details, paypalOrderId, paypalDetails, western, proofFile }) {
-  const webhookUrl = process.env.DISCORD_WEBHOOK_URL
-  if (!webhookUrl) {
-    return { sent: false, reason: 'DISCORD_WEBHOOK_URL nije postavljen.' }
-  }
-
+function buildDiscordOrderFields({ shopOrderId, buyer, items, subtotal, discount, total, paymentStatus, details, paypalOrderId, paypalDetails, western }) {
   const itemList = items.map((item) => `- ${item.quantity}x ${item.name} - ${item.total.toFixed(2)} EUR`).join('\n')
   const detailList = formatDetails(details || {}, items)
   const fields = [
@@ -510,15 +505,28 @@ async function sendDiscordOrder({ type, shopOrderId, buyer, items, subtotal, dis
     inline: false
   })
 
+  return fields
+}
+
+function buildDiscordOrderEmbed({ type, shopOrderId, buyer, items, subtotal, discount, total, paymentStatus, details, paypalOrderId, paypalDetails, western }) {
+  return {
+    title: type === 'paypal' ? 'Nova PayPal narudzba' : 'Nova Western Union narudzba',
+    color: type === 'paypal' ? 0x22c55e : 0xf97316,
+    fields: buildDiscordOrderFields({ shopOrderId, buyer, items, subtotal, discount, total, paymentStatus, details, paypalOrderId, paypalDetails, western }),
+    timestamp: new Date().toISOString(),
+    footer: { text: 'Echo City Roleplay shop' }
+  }
+}
+
+async function sendDiscordOrder({ type, shopOrderId, buyer, items, subtotal, discount, total, paymentStatus, details, paypalOrderId, paypalDetails, western, proofFile }) {
+  const webhookUrl = process.env.DISCORD_WEBHOOK_URL
+  if (!webhookUrl) {
+    return { sent: false, reason: 'DISCORD_WEBHOOK_URL nije postavljen.' }
+  }
+
   const payload = {
     username: 'Echo City Checkout',
-    embeds: [{
-      title: type === 'paypal' ? 'Nova PayPal narudzba' : 'Nova Western Union narudzba',
-      color: type === 'paypal' ? 0x22c55e : 0xf97316,
-      fields,
-      timestamp: new Date().toISOString(),
-      footer: { text: 'Echo City Roleplay shop' }
-    }]
+    embeds: [buildDiscordOrderEmbed({ type, shopOrderId, buyer, items, subtotal, discount, total, paymentStatus, details, paypalOrderId, paypalDetails, western })]
   }
 
   if (proofFile) {
@@ -536,6 +544,75 @@ async function sendDiscordOrder({ type, shopOrderId, buyer, items, subtotal, dis
   })
 
   return { sent: response.ok }
+}
+
+function getDiscordStaffRoleIds() {
+  return String(process.env.DISCORD_STAFF_ROLE_IDS || process.env.DISCORD_STAFF_ROLE_ID || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+async function createDiscordDonationTicket({ type, shopOrderId, buyer, items, subtotal, discount, total, paymentStatus, details, paypalOrderId, paypalDetails, western }) {
+  const botToken = process.env.DISCORD_BOT_TOKEN
+  const guildId = process.env.DISCORD_GUILD_ID
+  const categoryId = process.env.DISCORD_TICKET_CATEGORY_ID
+  const staffRoleIds = getDiscordStaffRoleIds()
+
+  if (!botToken || !guildId || !staffRoleIds.length) {
+    return { created: false, reason: 'Discord ticket bot env nije kompletan.' }
+  }
+
+  const viewChannel = 1024
+  const staffAllow = 1024 + 2048 + 16384 + 32768 + 65536
+  const channelName = `donacija-${shopOrderId.toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 82)}`
+  const permissionOverwrites = [
+    { id: guildId, type: 0, deny: String(viewChannel) },
+    ...staffRoleIds.map((roleId) => ({ id: roleId, type: 0, allow: String(staffAllow) }))
+  ]
+
+  try {
+    const createResponse = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bot ${botToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: channelName,
+        type: 0,
+        parent_id: categoryId || undefined,
+        topic: `Donacija ${shopOrderId} - ${buyer.discord}`,
+        permission_overwrites: permissionOverwrites
+      })
+    })
+
+    const channel = await createResponse.json()
+    if (!createResponse.ok) {
+      return { created: false, reason: channel?.message || 'Discord kanal nije kreiran.' }
+    }
+
+    const messageResponse = await fetch(`https://discord.com/api/v10/channels/${channel.id}/messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bot ${botToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        content: staffRoleIds.map((roleId) => `<@&${roleId}>`).join(' '),
+        embeds: [buildDiscordOrderEmbed({ type, shopOrderId, buyer, items, subtotal, discount, total, paymentStatus, details, paypalOrderId, paypalDetails, western })]
+      })
+    })
+
+    if (!messageResponse.ok) {
+      const error = await messageResponse.json().catch(() => ({}))
+      return { created: true, channelId: channel.id, url: `https://discord.com/channels/${guildId}/${channel.id}`, warning: error?.message || 'Kanal je kreiran, ali poruka nije poslana.' }
+    }
+
+    return { created: true, channelId: channel.id, url: `https://discord.com/channels/${guildId}/${channel.id}` }
+  } catch (error) {
+    return { created: false, reason: error.message }
+  }
 }
 
 app.get('/api/config', async (req, res) => {
@@ -690,7 +767,8 @@ app.post('/api/paypal/capture-order', async (req, res, next) => {
     const paymentStatus = capture.status === 'COMPLETED' ? 'PLACENO - PayPal automatski' : `PayPal status: ${capture.status}`
     const savedOrder = await saveOrder({ user, shopOrderId, type: 'paypal', buyer, items, subtotal, discount, total, details, paymentStatus, paypalOrderId, paypalDetails })
     const discord = await sendDiscordOrder({ type: 'paypal', shopOrderId, buyer, items, subtotal, discount, total, paymentStatus, details, paypalOrderId, paypalDetails })
-    res.json({ ok: true, shopOrderId, captureStatus: capture.status, discord, order: savedOrder })
+    const ticket = await createDiscordDonationTicket({ type: 'paypal', shopOrderId, buyer, items, subtotal, discount, total, paymentStatus, details, paypalOrderId, paypalDetails })
+    res.json({ ok: true, shopOrderId, captureStatus: capture.status, discord, ticket, order: savedOrder })
   } catch (error) {
     next(error)
   }
@@ -731,8 +809,9 @@ app.post('/api/western-union/order', upload.single('proof'), async (req, res, ne
       western,
       proofFile: req.file
     })
+    const ticket = await createDiscordDonationTicket({ type: 'western', shopOrderId, buyer, items, subtotal, discount, total, paymentStatus, details, western })
 
-    res.json({ ok: true, shopOrderId, discord, order: savedOrder })
+    res.json({ ok: true, shopOrderId, discord, ticket, order: savedOrder })
   } catch (error) {
     next(error)
   }
